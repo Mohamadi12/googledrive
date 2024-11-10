@@ -1,10 +1,11 @@
 "use server";
 
 import { ID, Query } from "node-appwrite";
-import { createAdminClient } from "../appwrite";
+import { createAdminClient, createSessionClient } from "../appwrite";
 import { appwriteConfig } from "../appwrite/config";
 import { parseStringfy } from "../utils";
 import { cookies } from "next/headers";
+import { avatarPlaceholderUrl } from "@/app/constants";
 
 // Create account flow
 // 1. User enters full name and email
@@ -62,8 +63,7 @@ export const createAccount = async ({
       {
         fullName,
         email,
-        avatar:
-          "https://png.pngtree.com/png-clipart/20230927/original/pngtree-man-avatar-image-for-profile-png-image_13001882.png",
+        avatar: avatarPlaceholderUrl,
         accountId,
       }
     );
@@ -88,5 +88,21 @@ export const verifySecret = async ({
       secure: true,
     });
     return parseStringfy({ sessionId: session.$id });
-  } catch (error) {}
+  } catch (error) {
+    handleError(error, "Failed");
+  }
+};
+
+export const getCurrentUser = async () => {
+  const { databases, account } = await createSessionClient();
+  const result = await account.get();
+
+  const user = await databases.listDocuments(
+    appwriteConfig.databaseId,
+    appwriteConfig.usersCollectionId,
+    [Query.equal("accountId", result.$id)]
+  );
+
+  if (user.total <= 0) return null;
+  return parseStringfy(user.documents[0]);
 };
