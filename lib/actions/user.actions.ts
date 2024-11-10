@@ -6,6 +6,7 @@ import { appwriteConfig } from "../appwrite/config";
 import { parseStringfy } from "../utils";
 import { cookies } from "next/headers";
 import { avatarPlaceholderUrl } from "@/app/constants";
+import { redirect } from "next/navigation";
 
 // Create account flow
 // 1. User enters full name and email
@@ -105,4 +106,32 @@ export const getCurrentUser = async () => {
 
   if (user.total <= 0) return null;
   return parseStringfy(user.documents[0]);
+};
+
+export const signOutUser = async () => {
+  const { account } = await createAdminClient();
+  try {
+    await account.deleteSession("current");
+    (await cookies()).delete("appwrite-session");
+  } catch (error) {
+    handleError(error, "Failed to sign out user");
+  } finally {
+    redirect("/sign-in");
+  }
+};
+
+export const signInUser = async ({ email }: { email: string }) => {
+  try {
+    const existingUser = await getUserByEmail(email);
+
+    //User exists, send OTP
+    if (existingUser) {
+      await sendEmailOTP({ email });
+      return parseStringfy({ accountId: existingUser.accountId });
+    }
+
+    return parseStringfy({ accountId: null, error: "User not found" });
+  } catch (error) {
+    handleError(error, "Failed to sign in user");
+  }
 };
